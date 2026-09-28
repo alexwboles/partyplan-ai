@@ -214,7 +214,7 @@ function render() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const sel = document.getElementById("evType");
-  sel.innerHTML = Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("");
+  sel.innerHTML = Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.label.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, "").trim())}</option>`).join("");
   document.getElementById("evDate").value = toISO(new Date(Date.now() + 30 * 86400000));
   document.getElementById("eventSelect").addEventListener("change", e => { S.activeId = e.target.value; persist(); });
   document.getElementById("evForm").addEventListener("submit", addEvent);
