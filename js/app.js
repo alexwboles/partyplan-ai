@@ -28,9 +28,17 @@ function renderEventPicker() {
     `<option value="${e.id}" ${ev && e.id === ev.id ? "selected" : ""}>${esc(e.name)} — ${esc(e.date)}</option>`
   ).join("") || `<option value="">No events yet</option>`;
   const days = ev ? daysUntil(ev.date) : null;
+  const typeLabel = ((EVENT_TYPES[ev.type] || {}).label || ev.type || "").replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, "").trim();
   document.getElementById("eventSummary").innerHTML = ev
-    ? `<strong>${esc(ev.name)}</strong> · ${esc((EVENT_TYPES[ev.type] || {}).label || ev.type)} · ` +
-      (days < 0 ? `${-days} days ago` : days === 0 ? "🎉 <b>today!</b>" : `<b>${days}</b> days to go`) +
+    ? `<div class="ev-mast">
+        <div><div class="ev-type">${esc(typeLabel)}</div>
+        <h2 class="ev-name">${esc(ev.name)}</h2></div>
+        <div class="countdown">${
+          days < 0 ? `<span class="num">${-days}</span><span class="lbl">days ago</span>`
+          : days === 0 ? `<span class="num">0</span><span class="lbl">today — showtime</span>`
+          : `<span class="num">${days}</span><span class="lbl">days to go</span>`}
+        </div>
+      </div>` +
       (eventNudge(days) ? `<div class="nudge">${esc(eventNudge(days))}</div>` : "")
     : `<span class="muted">Create your first event below to get a planning timeline.</span>`;
 }
@@ -55,7 +63,7 @@ function renderTimeline() {
   const tl = buildTimeline(ev.type, ev.date, ev.done, todayISO(), { EVENT_TYPES });
   const nt = nextTask(tl);
   box.innerHTML =
-    (nt ? `<div class="nudge">👉 Next up: <b>${esc(nt.title)}</b> — due ${esc(nt.due)}${nt.status === "overdue" ? " (overdue!)" : ""}<div class="tip">${esc(nt.tip)}</div></div>` : `<div class="nudge">✅ All tasks done — enjoy the event!</div>`) +
+    (nt ? `<div class="nudge"><strong>Next up:</strong> ${esc(nt.title)} — due ${esc(nt.due)}${nt.status === "overdue" ? " (overdue)" : ""}<div class="tip">${esc(nt.tip)}</div></div>` : `<div class="nudge"><strong>All tasks done</strong> — enjoy the event!</div>`) +
     tl.map(t => `
       <div class="task ${t.status}">
         <input type="checkbox" ${t.status === "done" ? "checked" : ""} onchange="toggleTask(${t.idx}, this.checked)" aria-label="done">
@@ -96,7 +104,7 @@ function renderBudget() {
     <div class="bar"><div class="bar-fill" style="width:${Math.min(100, bt.pct)}%"></div></div>
     <div class="form inline">
       <input id="quickTotal" type="number" min="0" placeholder="Total budget $, e.g. 2000">
-      <button class="btn small" type="button" onclick="autoBudget()">✨ Auto-split budget</button>
+      <button class="btn small" type="button" onclick="autoBudget()">Auto-split budget</button>
     </div>
     ${rows}`;
 }
@@ -138,10 +146,10 @@ function renderGuests() {
       ${(ev.guests || []).map(g => `
         <div class="grow-item">
           <div><b>${esc(g.name)}</b>${g.plusOne ? " +1" : ""}<div class="muted small">${esc(g.contact || "")}</div></div>
-          <select onchange="setRsvp('${g.id}', this.value)">
+          <select class="rsvp rsvp-${g.rsvp}" onchange="setRsvp('${g.id}', this.value)" aria-label="RSVP status">
             ${RSVP_STATUSES.map(s => `<option value="${s}" ${g.rsvp === s ? "selected" : ""}>${RSVP_LABELS[s]}</option>`).join("")}
           </select>
-          <button class="btn danger small" onclick="delGuest('${g.id}')">✕</button>
+          <button class="btn danger small" onclick="delGuest('${g.id}')">Remove</button>
         </div>`).join("") || `<p class="muted">No guests yet.</p>`}
     </div>`;
 }
@@ -178,10 +186,10 @@ function renderVendors() {
         <div class="grow-item">
           <div><b>${esc(v.name)}</b><div class="muted small">${esc(v.service || "")} · ${esc(v.contact || "")}</div></div>
           <div class="muted">$${Number(v.cost || 0).toLocaleString()}</div>
-          <select onchange="setVendor('${v.id}', this.value)">
+          <select class="vstatus vstatus-${v.status}" onchange="setVendor('${v.id}', this.value)" aria-label="Vendor status">
             ${VENDOR_STATUSES.map(s => `<option value="${s}" ${v.status === s ? "selected" : ""}>${VENDOR_LABELS[s]}</option>`).join("")}
           </select>
-          <button class="btn danger small" onclick="delVendor('${v.id}')">✕</button>
+          <button class="btn danger small" onclick="delVendor('${v.id}')">Remove</button>
         </div>`).join("") || `<p class="muted">No vendors yet.</p>`}
     </div>`;
 }
