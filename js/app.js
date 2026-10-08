@@ -14,6 +14,7 @@ function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"
 let S = load();
 function active() { return S.events.find(e => e.id === S.activeId) || S.events[0] || null; }
 function persist() { save(S); render(); }
+let guestQuery = "", guestStatus = "";
 
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
@@ -49,7 +50,7 @@ function addEvent(e) {
   const type = document.getElementById("evType").value;
   const date = document.getElementById("evDate").value;
   if (!name || !date) return;
-  const ev = { id: uid(), name, type, date, budget: [], guests: [], vendors: [], done: [] };
+  const ev = { id: uid(), name, type, date, budget: [], guests: [], vendors: [], done: [], schedule: [] };
   S.events.push(ev); S.activeId = ev.id;
   document.getElementById("evName").value = "";
   persist();
@@ -87,10 +88,16 @@ function renderBudget() {
   const box = document.getElementById("budgetBox");
   if (!ev) { box.innerHTML = `<p class="muted">No event selected.</p>`; return; }
   const bt = budgetTotals(ev.budget);
+  const over = overBudgetCategories(ev.budget);
+  const overSet = {};
+  over.forEach(o => overSet[o.category] = o);
+  const vvb = vendorVsBudget(ev.vendors, ev.budget);
   const rows = BUDGET_CATEGORIES.map(c => {
     const r = bt.perCat[c.id] || { planned: 0, spent: 0 };
+    const o = overSet[c.id];
     return `<div class="brow">
-      <div class="brow-label">${esc(c.label)}<div class="tip">${esc(c.tip)}</div></div>
+      <div class="brow-label">${esc(c.label)}<div class="tip">${esc(c.tip)}</div>
+      ${o ? `<div class="over-flag">Over by $${o.over.toLocaleString()} — spent $${o.spent.toLocaleString()} of $${o.planned.toLocaleString()} planned</div>` : ""}</div>
       <input type="number" min="0" placeholder="Planned $" value="${r.planned || ""}" onchange="setBudget('${c.id}','planned',this.value)">
       <input type="number" min="0" placeholder="Spent $" value="${r.spent || ""}" onchange="setBudget('${c.id}','spent',this.value)">
     </div>`;
@@ -100,8 +107,11 @@ function renderBudget() {
       <div class="stat"><div class="stat-num">$${bt.planned.toLocaleString()}</div><div class="stat-lab">Planned</div></div>
       <div class="stat"><div class="stat-num">$${bt.spent.toLocaleString()}</div><div class="stat-lab">Spent (${bt.pct}%)</div></div>
       <div class="stat"><div class="stat-num">$${(bt.planned - bt.spent).toLocaleString()}</div><div class="stat-lab">Remaining</div></div>
+      <div class="stat"><div class="stat-num">$${vvb.committed.toLocaleString()}</div><div class="stat-lab">Vendor committed</div></div>
     </div>
     <div class="bar"><div class="bar-fill" style="width:${Math.min(100, bt.pct)}%"></div></div>
+    ${over.length ? `<div class="nudge warn"><strong>Over budget in ${over.length} categor${over.length === 1 ? "y" : "ies"}:</strong> ${over.map(o => esc(o.category) + " (+$" + o.over.toLocaleString() + ")").join(", ")}</div>` : ""}
+    ${vvb.over ? `<div class="nudge warn"><strong>Heads up:</strong> committed vendor spend ($${vvb.committed.toLocaleString()}) already exceeds your $${vvb.planned.toLocaleString()} total budget.</div>` : ""}
     <div class="form inline">
       <input id="quickTotal" type="number" min="0" placeholder="Total budget $, e.g. 2000">
       <button class="btn small" type="button" onclick="autoBudget()">Auto-split budget</button>
@@ -129,6 +139,8 @@ function renderGuests() {
   const box = document.getElementById("guestBox");
   if (!ev) { box.innerHTML = `<p class="muted">No event selected.</p>`; return; }
   const st = rsvpStats(ev.guests);
+  const pending = pendingRSVPs(ev.guests);
+  const visible = filterGuests(ev.guests, guestQuery, guestStatus);
   box.innerHTML = `
     <div class="statcards">
       <div class="stat"><div class="stat-num">${st.counts.yes}</div><div class="stat-lab">Yes</div></div>
@@ -136,22 +148,42 @@ function renderGuests() {
       <div class="stat"><div class="stat-num">${st.counts.invited}</div><div class="stat-lab">Awaiting reply</div></div>
       <div class="stat"><div class="stat-num">${st.expected}</div><div class="stat-lab">Expected headcount</div></div>
     </div>
+    ${pending.length ? `<div class="nudge warn"><strong>Follow up:</strong> ${esc(followUpText(pending))}</div>` : ""}
     <form class="form inline" onsubmit="addGuest(event)">
       <input id="gName" placeholder="Guest name" required>
       <input id="gContact" placeholder="Phone/email (optional)">
       <label class="check"><input type="checkbox" id="gPlus"> +1</label>
       <button class="btn small" type="submit">Add guest</button>
     </form>
+    <div class="form inline">
+      <input id="guestSearch" placeholder="Search guests…" value="${esc(guestQuery)}" aria-label="Search guests">
+      <select id="guestStatusFilter" aria-label="Filter by RSVP status">
+        <option value="">All statuses</option>
+        ${RSVP_STATUSES.map(s => `<option value="${s}"${guestStatus === s ? " selected" : ""}>${RSVP_LABELS[s]}</option>`).join("")}
+      </select>
+      <button class="btn small" type="button" onclick="exportGuests()">Export CSV</button>
+    </div>
+    <p class="muted small">${visible.length} of ${(ev.guests || []).length} guests shown.</p>
     <div class="grow">
-      ${(ev.guests || []).map(g => `
+      ${visible.map(g => `
         <div class="grow-item">
           <div><b>${esc(g.name)}</b>${g.plusOne ? " +1" : ""}<div class="muted small">${esc(g.contact || "")}</div></div>
           <select class="rsvp rsvp-${g.rsvp}" onchange="setRsvp('${g.id}', this.value)" aria-label="RSVP status">
             ${RSVP_STATUSES.map(s => `<option value="${s}" ${g.rsvp === s ? "selected" : ""}>${RSVP_LABELS[s]}</option>`).join("")}
           </select>
           <button class="btn danger small" onclick="delGuest('${g.id}')">Remove</button>
-        </div>`).join("") || `<p class="muted">No guests yet.</p>`}
+        </div>`).join("") || `<p class="muted">${guestQuery || guestStatus ? "No guests match that filter." : "No guests yet."}</p>`}
     </div>`;
+  const gs = document.getElementById("guestSearch");
+  gs.addEventListener("input", () => { guestQuery = gs.value; clearTimeout(gs._t); gs._t = setTimeout(renderGuests, 220); });
+  document.getElementById("guestStatusFilter").addEventListener("change", e => { guestStatus = e.target.value; renderGuests(); });
+}
+function exportGuests() {
+  const ev = active(); if (!ev) return;
+  const blob = new Blob([guestsToCSV(ev.guests)], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "partyplan-guests.csv"; a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function addGuest(e) {
   e.preventDefault();
@@ -204,12 +236,51 @@ function addVendor(e) {
 function setVendor(id, v) { const ev = active(); const x = (ev.vendors || []).find(y => y.id === id); if (x) { x.status = v; persist(); } }
 function delVendor(id) { const ev = active(); ev.vendors = (ev.vendors || []).filter(x => x.id !== id); persist(); }
 
+/* ---------- day-of schedule ---------- */
+function renderSchedule() {
+  const ev = active();
+  const box = document.getElementById("dayofBox");
+  if (!ev) { box.innerHTML = `<p class="muted">No event selected.</p>`; return; }
+  const items = sortSchedule(ev.schedule || []);
+  box.innerHTML = `
+    <form class="form inline" onsubmit="addScheduleItemUI(event)">
+      <input id="schTime" type="time" required aria-label="Time">
+      <input id="schTitle" placeholder="What happens (e.g. Guests arrive)" required>
+      <input id="schNote" placeholder="Note / owner (optional)">
+      <button class="btn small" type="submit">Add to schedule</button>
+    </form>
+    ${items.length ? `<div class="grow">` + items.map(s => `
+      <div class="grow-item">
+        <div class="sched-time"><b>${esc(s.time)}</b></div>
+        <div class="sched-title"><b>${esc(s.title)}</b>${s.note ? `<div class="muted small">${esc(s.note)}</div>` : ""}</div>
+        <button class="btn danger small" onclick="delScheduleItem('${s.id}')">Remove</button>
+      </div>`).join("") + `</div>` : `<p class="muted">No schedule yet — add the first run-of-show item above.</p>`}`;
+}
+function addScheduleItemUI(e) {
+  e.preventDefault();
+  const ev = active(); if (!ev) return;
+  try {
+    ev.schedule = addScheduleItem(ev.schedule || [], {
+      time: document.getElementById("schTime").value,
+      title: document.getElementById("schTitle").value,
+      note: document.getElementById("schNote").value
+    });
+    persist();
+  } catch (err) { alert(err.message); }
+}
+function delScheduleItem(id) {
+  const ev = active(); if (!ev) return;
+  ev.schedule = removeScheduleItem(ev.schedule || [], id);
+  persist();
+}
+
 function render() {
   renderEventPicker();
   renderTimeline();
   renderBudget();
   renderGuests();
   renderVendors();
+  renderSchedule();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -65,5 +65,56 @@ flow "nudges escalate as event nears" "
   if(!/today/.test(L.eventNudge(0))) throw new Error('today nudge');
 "
 
+flow "guest search/filter narrows the list" "
+  const L=require('./js/logic.js');
+  const guests=[{name:'Maya Chen',contact:'maya@x.com',rsvp:'yes'},{name:'Leo Park',contact:'',rsvp:'invited'},{name:'Maya Rudolph',contact:'',rsvp:'maybe'}];
+  if(L.filterGuests(guests,'maya','').length!==2) throw new Error('name search');
+  if(L.filterGuests(guests,'','invited').length!==1) throw new Error('status filter');
+  if(L.filterGuests(guests,'leo','invited').length!==1) throw new Error('combined filter');
+  if(L.filterGuests(guests,'','').length!==3) throw new Error('empty filter should return all');
+"
+
+flow "RSVP follow-up nudge names non-responders" "
+  const L=require('./js/logic.js');
+  const guests=[{name:'A',rsvp:'yes'},{name:'B',rsvp:'invited'},{name:'C',rsvp:'invited'}];
+  const p=L.pendingRSVPs(guests);
+  if(p.length!==2) throw new Error('pending count');
+  const t=L.followUpText(p);
+  if(!/2 guests/.test(t)||!/B, C/.test(t)) throw new Error('follow-up text: '+t);
+  if(L.followUpText([])!=='') throw new Error('empty pending should be quiet');
+"
+
+flow "guest CSV export has headers and rows" "
+  const L=require('./js/logic.js');
+  const csv=L.guestsToCSV([{name:'Maya, Jr.',contact:'m@x.com',rsvp:'yes',plusOne:true}]).split('\n');
+  if(csv[0]!=='Name,Contact,RSVP,Plus-one') throw new Error('header: '+csv[0]);
+  if(csv[1].indexOf('\"Maya, Jr.\"')<0) throw new Error('comma must be quoted: '+csv[1]);
+  if(csv[1].indexOf(',yes,yes')<0) throw new Error('rsvp/plus-one: '+csv[1]);
+"
+
+flow "over-budget categories and vendor-vs-budget alerts" "
+  const L=require('./js/logic.js');
+  const lines=[{category:'food',planned:1000,spent:1250},{category:'venue',planned:800,spent:600},{category:'decor',planned:0,spent:50}];
+  const over=L.overBudgetCategories(lines);
+  if(over.length!==1||over[0].category!=='food'||over[0].over!==250) throw new Error('over-budget wrong: '+JSON.stringify(over));
+  const vvb=L.vendorVsBudget([{cost:2500,status:'booked'},{cost:300,status:'paid'}],lines);
+  if(vvb.committed!==2800) throw new Error('committed wrong');
+  if(!vvb.over) throw new Error('vendor spend 2800 > planned 1800 should flag over');
+  const ok=L.vendorVsBudget([{cost:500,status:'booked'}],[{category:'food',planned:2000,spent:0}]);
+  if(ok.over) throw new Error('should not flag when within budget');
+"
+
+flow "day-of schedule validates, sorts, removes" "
+  const L=require('./js/logic.js');
+  let s=L.addScheduleItem([ ],{time:'19:00',title:'Guests arrive'});
+  s=L.addScheduleItem(s,{time:'18:00',title:'Vendor setup',note:'Caterer'});
+  if(s[0].time!=='18:00') throw new Error('not sorted: '+s.map(x=>x.time).join(','));
+  if(!s[0].id||s[0].note!=='Caterer') throw new Error('fields missing');
+  try{ L.addScheduleItem([ ],{time:'7pm',title:'x'}); throw new Error('bad time accepted'); }catch(e){ if(!/HH:MM/.test(e.message)) throw e; }
+  try{ L.addScheduleItem([ ],{time:'19:00',title:'  '}); throw new Error('blank title accepted'); }catch(e){ if(!/title/i.test(e.message)) throw e; }
+  s=L.removeScheduleItem(s,s[0].id);
+  if(s.length!==1||s[0].title!=='Guests arrive') throw new Error('remove failed');
+"
+
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

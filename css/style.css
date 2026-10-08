@@ -81,8 +81,16 @@ code { font-size: .85em; }
   background: var(--gold-soft); border: 1px solid #e6d3a8; border-left: 5px solid var(--gold);
   border-radius: 0; padding: .8rem 1rem; margin: .8rem 0; font-size: .93rem;
 }
+.nudge.warn { background: #fdf3ec; border-color: #f0cdb8; border-left-color: #c2410c; }
 .nudge .tip { margin-top: .35rem; }
 .tip { font-size: .83rem; color: var(--ink-soft); }
+.over-flag {
+  font-size: .78rem; font-weight: 700; color: #9a3412;
+  background: #fdf3ec; border: 1px solid #f0cdb8; border-radius: 0;
+  padding: .3rem .6rem; margin-top: .4rem; display: inline-block;
+}
+.sched-time { font-variant-numeric: tabular-nums; min-width: 64px; flex: 0 0 auto !important; }
+.grow-item .sched-title { flex: 1 1 200px; }
 
 /* ---------- tabs ---------- */
 .tabs { display: flex; gap: .3rem; overflow-x: auto; margin-bottom: 1rem; scrollbar-width: none; }

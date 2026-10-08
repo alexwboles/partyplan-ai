@@ -8,10 +8,11 @@ Event planning is death by a thousand details: invitations go out late, the budg
 
 1. **10 event types** — birthday, wedding, baby shower, graduation, holiday party, dinner party, BBQ, anniversary, housewarming, retirement — each with a purpose-built timeline
 2. **Countdown timelines** — tasks auto-scheduled backwards from your date, with overdue / due-soon / today states and plain-language tips per task
-3. **Budget tracker** — planned vs. spent by category, progress bar, and a one-click auto-split that divides a total budget sensibly
-4. **Guest list + RSVPs** — expected headcount math (yes + plus-ones + half of maybes)
+3. **Budget tracker** — planned vs. spent by category, progress bar, and a one-click auto-split that divides a total budget sensibly; **over-budget category alerts** flag where spending blew past the plan, and a **vendor-vs-budget check** warns when committed vendor spend already exceeds the total budget
+4. **Guest list + RSVPs** — expected headcount math (yes + plus-ones + half of maybes); **search + RSVP-status filters**, a **follow-up nudge** naming everyone still awaiting reply, and **CSV export**
 5. **Vendor board** — researching → contacted → booked → paid pipeline with committed spend totals
-6. **Optional AI polish** — paste your own OpenAI API key for rewritten invitation wording (never required)
+6. **Day-of schedule** — build your event-day run-of-show (validated HH:MM times, auto-sorted chronologically)
+7. **Optional AI polish** — paste your own OpenAI API key for rewritten invitation wording (never required)
 
 ## How to run
 
@@ -32,8 +33,8 @@ Budget auto-split uses fixed category weights (food 30%, venue 25%, …) scaled 
 ## Tests
 
 ```bash
-bash test/smoke.sh   # 12 checks: files, syntax, data bank integrity, core math
-bash test/e2e.sh     # 7 flows: timeline generation, overdue detection, RSVP math, budget split, vendor stats, nudges
+bash test/smoke.sh   # 14 checks: files, syntax, data bank integrity, core math
+bash test/e2e.sh     # 12 flows: timeline generation, overdue detection, RSVP math, budget split, vendor stats, nudges, guests, budget alerts, day-of schedule
 ```
 
 ## Pricing vision (future)

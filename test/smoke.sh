@@ -30,6 +30,14 @@ check "budget math: planned 1000 spent 250 -> 25%" node -e "
   const L=require('./js/logic.js');
   const bt=L.budgetTotals([{category:'food',planned:1000,spent:250}]);
   if(bt.pct!==25) throw new Error('pct='+bt.pct);"
+check "guest helpers + schedule helpers exported" node -e "
+  const L=require('./js/logic.js');
+  ['filterGuests','pendingRSVPs','followUpText','overBudgetCategories','vendorVsBudget','guestsToCSV','addScheduleItem','removeScheduleItem','sortSchedule'].forEach(f=>{
+    if(typeof L[f]!=='function') throw new Error('missing '+f);});"
+check "suggestedBudget still works" node -e "
+  const L=require('./js/logic.js'); const B=require('./js/planbank.js');
+  const lines=L.suggestedBudget(2000,B.BUDGET_CATEGORIES);
+  if(Math.abs(lines.reduce((s,l)=>s+l.planned,0)-2000)>10) throw new Error('sum off');"
 
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))

@@ -109,7 +109,87 @@ function suggestedBudget(total, categories) {
   }));
 }
 
+/** Filter guests by name/contact query and/or RSVP status. */
+function filterGuests(guests, query, status) {
+  const q = (query || "").trim().toLowerCase();
+  return (guests || []).filter(g => {
+    if (status && g.rsvp !== status) return false;
+    if (q && ((g.name || "") + " " + (g.contact || "")).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+/** Guests still awaiting a reply (status "invited"). */
+function pendingRSVPs(guests) {
+  return (guests || []).filter(g => g.rsvp === "invited");
+}
+
+/** Plain-language follow-up nudge naming non-responders. */
+function followUpText(pending) {
+  const p = pending || [];
+  if (!p.length) return "";
+  const names = p.slice(0, 5).map(g => g.name);
+  let s = "Still waiting on " + p.length + " guest" + (p.length === 1 ? "" : "s") + ": " + names.join(", ");
+  if (p.length > 5) s += " (+" + (p.length - 5) + " more)";
+  return s + ". Send them a nudge today.";
+}
+
+/** Categories where spending has blown past the plan. */
+function overBudgetCategories(lines) {
+  return (lines || [])
+    .filter(l => (Number(l.planned) || 0) > 0 && (Number(l.spent) || 0) > Number(l.planned))
+    .map(l => ({ category: l.category, planned: Number(l.planned), spent: Number(l.spent),
+                 over: Number(l.spent) - Number(l.planned) }));
+}
+
+/** Vendor committed spend vs the overall planned budget. */
+function vendorVsBudget(vendors, lines) {
+  const vs = vendorStats(vendors);
+  const bt = budgetTotals(lines);
+  return {
+    committed: vs.cost, planned: bt.planned,
+    over: bt.planned > 0 && vs.cost > bt.planned,
+    remaining: bt.planned - vs.cost
+  };
+}
+
+function csvCell(v) {
+  const s = String(v === undefined || v === null ? "" : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+/** Guest list -> CSV (name, contact, RSVP, plus-one). */
+function guestsToCSV(guests) {
+  const rows = [["Name", "Contact", "RSVP", "Plus-one"]];
+  (guests || []).forEach(g => {
+    rows.push([g.name, g.contact, g.rsvp, g.plusOne ? "yes" : "no"]);
+  });
+  return rows.map(r => r.map(csvCell).join(",")).join("\n");
+}
+
+/** Day-of schedule: validated, chronologically sortable items. */
+function addScheduleItem(schedule, item) {
+  const time = (item && item.time || "").trim();
+  const title = (item && item.title || "").trim();
+  if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Time must be HH:MM (24h)");
+  if (!title) throw new Error("Schedule item needs a title");
+  const next = (schedule || []).slice();
+  next.push({ id: "s" + Date.now().toString(36) + Math.floor(Math.random() * 999), time, title,
+              note: (item.note || "").trim() });
+  return sortSchedule(next);
+}
+
+function removeScheduleItem(schedule, id) {
+  return (schedule || []).filter(s => s.id !== id);
+}
+
+function sortSchedule(schedule) {
+  return (schedule || []).slice().sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { parseISO, toISO, todayISO, daysUntil, addDays, buildTimeline,
-    nextTask, eventNudge, budgetTotals, rsvpStats, vendorStats, suggestedBudget };
+    nextTask, eventNudge, budgetTotals, rsvpStats, vendorStats, suggestedBudget,
+    filterGuests, pendingRSVPs, followUpText, overBudgetCategories, vendorVsBudget,
+    guestsToCSV, addScheduleItem, removeScheduleItem, sortSchedule };
 }
