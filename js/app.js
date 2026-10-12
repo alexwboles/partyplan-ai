@@ -92,6 +92,12 @@ function renderBudget() {
   const overSet = {};
   over.forEach(o => overSet[o.category] = o);
   const vvb = vendorVsBudget(ev.vendors, ev.budget);
+  const st = rsvpStats(ev.guests);
+  const cph = costPerHead(bt, st.expected);
+  const perHeadLine = st.expected
+    ? `<div class="stat"><div class="stat-num">$${cph.planned.toLocaleString()}</div><div class="stat-lab">Planned / head (${st.expected})</div></div>
+       <div class="stat"><div class="stat-num">$${cph.spent.toLocaleString()}</div><div class="stat-lab">Spent / head</div></div>`
+    : "";
   const rows = BUDGET_CATEGORIES.map(c => {
     const r = bt.perCat[c.id] || { planned: 0, spent: 0 };
     const o = overSet[c.id];
@@ -108,6 +114,7 @@ function renderBudget() {
       <div class="stat"><div class="stat-num">$${bt.spent.toLocaleString()}</div><div class="stat-lab">Spent (${bt.pct}%)</div></div>
       <div class="stat"><div class="stat-num">$${(bt.planned - bt.spent).toLocaleString()}</div><div class="stat-lab">Remaining</div></div>
       <div class="stat"><div class="stat-num">$${vvb.committed.toLocaleString()}</div><div class="stat-lab">Vendor committed</div></div>
+      ${perHeadLine}
     </div>
     <div class="bar"><div class="bar-fill" style="width:${Math.min(100, bt.pct)}%"></div></div>
     ${over.length ? `<div class="nudge warn"><strong>Over budget in ${over.length} categor${over.length === 1 ? "y" : "ies"}:</strong> ${over.map(o => esc(o.category) + " (+$" + o.over.toLocaleString() + ")").join(", ")}</div>` : ""}
@@ -156,6 +163,18 @@ function renderGuests() {
       <button class="btn small" type="submit">Add guest</button>
     </form>
     <div class="form inline">
+      <button class="btn small" type="button" onclick="toggleGuestImport()">Import CSV</button>
+      ${pending.length ? `<button class="btn small" type="button" onclick="copyReminder()">Copy RSVP reminder</button>` : ""}
+    </div>
+    <div id="guestImport" style="display:none" class="form">
+      <textarea id="guestCsv" rows="5" style="width:100%" placeholder="Paste guest CSV — one per line. Header optional: name,contact,rsvp,plus-one&#10;e.g.&#10;Maya Chen,555-0101,yes,yes&#10;Jordan Lee,,maybe,"></textarea>
+      <div class="form inline">
+        <button class="btn small" type="button" onclick="importGuestCsv()">Import</button>
+        <button class="btn small" type="button" onclick="toggleGuestImport()">Cancel</button>
+      </div>
+      <p class="muted small" id="guestImportMsg"></p>
+    </div>
+    <div class="form inline">
       <input id="guestSearch" placeholder="Search guests…" value="${esc(guestQuery)}" aria-label="Search guests">
       <select id="guestStatusFilter" aria-label="Filter by RSVP status">
         <option value="">All statuses</option>
@@ -191,6 +210,36 @@ function addGuest(e) {
   const name = document.getElementById("gName").value.trim();
   if (!name) return;
   ev.guests.push({ id: uid(), name, contact: document.getElementById("gContact").value.trim(), plusOne: document.getElementById("gPlus").checked, rsvp: "invited" });
+  persist();
+}
+function toggleGuestImport() {
+  const box = document.getElementById("guestImport");
+  if (!box) return;
+  box.style.display = box.style.display === "none" ? "" : "none";
+}
+function importGuestCsv() {
+  const ev = active(); if (!ev) return;
+  const msg = document.getElementById("guestImportMsg");
+  try {
+    const res = parseGuestsCSV(document.getElementById("guestCsv").value);
+    ev.guests = (ev.guests || []).concat(res.guests);
+    persist();
+    msg.textContent = "Imported " + res.guests.length + " guest" + (res.guests.length === 1 ? "" : "s") +
+      (res.skipped ? " (" + res.skipped + " blank line" + (res.skipped === 1 ? "" : "s") + " skipped)" : "") + ".";
+  } catch (err) { msg.textContent = "Import failed: " + err.message; }
+}
+function copyReminder() {
+  const ev = active(); if (!ev) return;
+  const text = rsvpReminderText(ev, pendingRSVPs(ev.guests));
+  if (!text) return;
+  const done = () => alert("Reminder text copied — paste it into your group chat.");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+  else done();
+}
+function duplicateActiveEvent() {
+  const ev = active(); if (!ev) return;
+  const copy = duplicateEvent(ev);
+  S.events.push(copy); S.activeId = copy.id;
   persist();
 }
 function setRsvp(id, v) { const ev = active(); const g = (ev.guests || []).find(x => x.id === id); if (g) { g.rsvp = v; persist(); } }
@@ -289,6 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("evDate").value = toISO(new Date(Date.now() + 30 * 86400000));
   document.getElementById("eventSelect").addEventListener("change", e => { S.activeId = e.target.value; persist(); });
   document.getElementById("evForm").addEventListener("submit", addEvent);
+  document.getElementById("dupEventBtn").addEventListener("click", duplicateActiveEvent);
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
   render();
 });

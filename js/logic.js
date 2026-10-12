@@ -187,9 +187,114 @@ function sortSchedule(schedule) {
   return (schedule || []).slice().sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
 }
 
+/** Cost per expected guest: planned and spent per head. null when headcount is 0. */
+function costPerHead(budgetResult, expected) {
+  if (!expected || expected <= 0) return { planned: null, spent: null };
+  const r = (v) => Math.round(v / expected * 100) / 100;
+  return { planned: r(budgetResult.planned), spent: r(budgetResult.spent) };
+}
+
+/** Deep-copy an event as a fresh event (new id, "(copy)" name, no completed tasks). */
+function duplicateEvent(ev) {
+  if (!ev || typeof ev !== "object") throw new Error("duplicateEvent: event is required");
+  const copy = JSON.parse(JSON.stringify(ev));
+  copy.id = "e" + Date.now().toString(36) + Math.floor(Math.random() * 999);
+  copy.name = (ev.name || "Untitled event") + " (copy)";
+  copy.done = [];
+  (copy.guests || []).forEach(g => { g.id = "g" + Date.now().toString(36) + Math.floor(Math.random() * 9999); });
+  (copy.vendors || []).forEach(v => { v.id = "v" + Date.now().toString(36) + Math.floor(Math.random() * 9999); });
+  (copy.schedule || []).forEach(s => { s.id = "s" + Date.now().toString(36) + Math.floor(Math.random() * 9999); });
+  return copy;
+}
+
+/** Plain-language RSVP reminder naming the event and its date. */
+function rsvpReminderText(ev, pending) {
+  const p = pending || [];
+  if (!p.length) return "";
+  const name = (ev && ev.name) || "the event";
+  const date = (ev && ev.date) || "";
+  let s = "Quick reminder: " + name + (date ? " is on " + date : "") + " and we haven't heard from you yet. ";
+  s += "Could you let us know — coming, maybe, or can't make it? ";
+  if (p.length === 1) s += "Just reply to this message.";
+  else s += "Even a quick yes/no helps us lock in catering and seating.";
+  return s;
+}
+
+/* ---------- guest CSV import ---------- */
+/* Parse pasted CSV text into guest objects. Detects a header row
+   (name/contact/rsvp/plus-one). RSVP normalized to invited|yes|maybe|no. */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+function normRsvp(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (["yes", "y", "coming", "attending"].includes(s)) return "yes";
+  if (["maybe", "m", "tentative"].includes(s)) return "maybe";
+  if (["no", "n", "declined", "cant", "can't"].includes(s)) return "no";
+  return "invited";
+}
+function normPlusOne(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return ["yes", "y", "true", "1", "x"].includes(s);
+}
+
+function parseGuestsCSV(text) {
+  const rawLines = String(text || "").split(/\r?\n/);
+  const lines = rawLines.map(l => l.trim());
+  if (!lines.some(l => l.length)) throw new Error("Nothing to import — paste some CSV first.");
+  const guests = [];
+  let skipped = 0;
+  let start = 0;
+  // header detection: first line names the columns
+  const first = splitCsvLine(lines[0]).map(s => s.toLowerCase());
+  const looksHeader = first.some(s => /name|contact|rsvp|plus|phone|email/.test(s));
+  let nameIdx = 0, contactIdx = 1, rsvpIdx = 2, plusIdx = 3;
+  if (looksHeader) {
+    start = 1;
+    first.forEach((s, i) => {
+      if (/name/.test(s)) nameIdx = i;
+      else if (/contact|phone|email/.test(s)) contactIdx = i;
+      else if (/rsvp|status|reply/.test(s)) rsvpIdx = i;
+      else if (/plus/.test(s)) plusIdx = i;
+    });
+  }
+  for (let i = start; i < lines.length; i++) {
+    if (!lines[i].length) { skipped++; continue; }
+    const cells = splitCsvLine(lines[i]);
+    const name = (cells[nameIdx] || "").trim();
+    if (!name) { skipped++; continue; }
+    guests.push({
+      id: "g" + Date.now().toString(36) + i + Math.floor(Math.random() * 999),
+      name,
+      contact: (cells[contactIdx] || "").trim(),
+      rsvp: normRsvp(cells[rsvpIdx]),
+      plusOne: normPlusOne(cells[plusIdx])
+    });
+  }
+  if (!guests.length) throw new Error("No guest rows found — each line needs at least a name.");
+  return { guests, skipped };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { parseISO, toISO, todayISO, daysUntil, addDays, buildTimeline,
     nextTask, eventNudge, budgetTotals, rsvpStats, vendorStats, suggestedBudget,
     filterGuests, pendingRSVPs, followUpText, overBudgetCategories, vendorVsBudget,
-    guestsToCSV, addScheduleItem, removeScheduleItem, sortSchedule };
+    guestsToCSV, addScheduleItem, removeScheduleItem, sortSchedule,
+    costPerHead, duplicateEvent, rsvpReminderText, parseGuestsCSV, splitCsvLine,
+    normRsvp, normPlusOne };
 }
