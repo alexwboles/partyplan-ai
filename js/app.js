@@ -190,12 +190,119 @@ function renderGuests() {
           <select class="rsvp rsvp-${g.rsvp}" onchange="setRsvp('${g.id}', this.value)" aria-label="RSVP status">
             ${RSVP_STATUSES.map(s => `<option value="${s}" ${g.rsvp === s ? "selected" : ""}>${RSVP_LABELS[s]}</option>`).join("")}
           </select>
+          <select class="diet" onchange="setDiet('${g.id}', this.value)" aria-label="Dietary needs">
+            <option value="">No diet needs</option>
+            ${DIET_OPTIONS.map(o => `<option value="${o}"${g.diet === o ? " selected" : ""}>${o}</option>`).join("")}
+          </select>
           <button class="btn danger small" onclick="delGuest('${g.id}')">Remove</button>
         </div>`).join("") || `<p class="muted">${guestQuery || guestStatus ? "No guests match that filter." : "No guests yet."}</p>`}
+    </div>
+    <div class="panel">
+      <h3>Catering headcount</h3>
+      <div id="dietSummary"></div>
+    </div>
+    <div class="panel">
+      <h3>Invitations</h3>
+      <div class="form inline">
+        <input id="invVenue" placeholder="Venue" value="${esc(ev.venue || "")}" aria-label="Venue">
+        <input id="invTime" placeholder="Time (e.g. 6:00 PM)" value="${esc(ev.time || "")}" aria-label="Time">
+        <input id="invDeadline" type="date" value="${esc(ev.rsvpDeadline || "")}" aria-label="RSVP deadline">
+      </div>
+      <div class="form inline">
+        <input id="invHost" placeholder="Host name (optional)" aria-label="Host name">
+        <input id="invDetails" placeholder="Extra details (optional)" aria-label="Extra details">
+      </div>
+      <div class="form inline">
+        <button class="btn small" type="button" onclick="copyInvite()">Copy invitation text</button>
+      </div>
+      <pre class="invite-preview" id="invitePreview" aria-live="polite"></pre>
+    </div>
+    <div class="panel">
+      <h3>Event wrap-up</h3>
+      <div id="wrapSummary"></div>
+      <div class="grow" id="thankList"></div>
+      <div class="form inline">
+        <button class="btn small" type="button" onclick="copyThankYou()">Copy thank-you text</button>
+      </div>
     </div>`;
   const gs = document.getElementById("guestSearch");
   gs.addEventListener("input", () => { guestQuery = gs.value; clearTimeout(gs._t); gs._t = setTimeout(renderGuests, 220); });
   document.getElementById("guestStatusFilter").addEventListener("change", e => { guestStatus = e.target.value; renderGuests(); });
+  // second sweep: diet summary, invite preview, wrap-up
+  const ds = dietSummary(ev.guests);
+  const dsBox = document.getElementById("dietSummary");
+  const dietKeys = Object.keys(ds.counts);
+  dsBox.innerHTML = dietKeys.length
+    ? `<div class="statcards">` + dietKeys.map(k => `<div class="stat"><div class="stat-num">${ds.counts[k]}</div><div class="stat-lab">${esc(k)}</div></div>`).join("") + `</div>
+       <p class="muted small">${ds.withNeeds} of ${ds.attending} attending guests have dietary needs.</p>`
+    : `<p class="muted small">No dietary needs recorded among ${ds.attending} attending (yes/maybe) guests.</p>`;
+  ["invVenue", "invTime", "invDeadline"].forEach(id => {
+    const f = document.getElementById(id);
+    if (f) f.addEventListener("change", () => { syncInviteFields(); updateInvitePreview(); });
+  });
+  ["invHost", "invDetails"].forEach(id => {
+    const f = document.getElementById(id);
+    if (f) f.addEventListener("input", updateInvitePreview);
+  });
+  updateInvitePreview();
+  renderWrapUp();
+}
+function setDiet(id, v) { const ev = active(); if (ev && setGuestDiet(ev.guests, id, v)) persist(); }
+function syncInviteFields() {
+  const ev = active(); if (!ev) return;
+  ev.venue = document.getElementById("invVenue").value.trim();
+  ev.time = document.getElementById("invTime").value.trim();
+  ev.rsvpDeadline = document.getElementById("invDeadline").value || null;
+  save(S);
+}
+function inviteOpts() {
+  return {
+    rsvpDeadline: document.getElementById("invDeadline").value || null,
+    host: document.getElementById("invHost").value.trim(),
+    details: document.getElementById("invDetails").value.trim()
+  };
+}
+function updateInvitePreview() {
+  const ev = active(); if (!ev) return;
+  const pv = document.getElementById("invitePreview");
+  if (pv) pv.textContent = invitationText(ev, inviteOpts());
+}
+function copyInvite() {
+  const ev = active(); if (!ev) return;
+  syncInviteFields();
+  const txt = invitationText(ev, inviteOpts());
+  const pv = document.getElementById("invitePreview");
+  if (pv) pv.textContent = txt;
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+  alert("Invitation copied — paste it into your invites.");
+}
+function renderWrapUp() {
+  const ev = active(); if (!ev) return;
+  const w = wrapUp(ev);
+  const box = document.getElementById("wrapSummary");
+  if (box) box.innerHTML =
+    `<div class="statcards">
+      <div class="stat"><div class="stat-num">$${w.planned}</div><div class="stat-lab">Planned</div></div>
+      <div class="stat"><div class="stat-num">$${w.spent}</div><div class="stat-lab">Spent</div></div>
+      <div class="stat"><div class="stat-num">${w.attended}</div><div class="stat-lab">Attended</div></div>
+      <div class="stat"><div class="stat-num">${w.thanked}/${w.attended}</div><div class="stat-lab">Thanked</div></div>
+    </div>` +
+    (w.over ? `<div class="nudge warn"><strong>Over budget by $${w.overBy}.</strong> Planned $${w.planned}, spent $${w.spent}.</div>`
+            : `<div class="nudge"><strong>On/under budget.</strong> Planned $${w.planned}, spent $${w.spent}.</div>`);
+  const tl = document.getElementById("thankList");
+  if (tl) tl.innerHTML = (ev.guests || []).filter(g => g.rsvp === "yes").map(g => `
+    <div class="grow-item">
+      <div><b>${esc(g.name)}</b></div>
+      <label class="check"><input type="checkbox"${(ev.thanked || {})[g.id] ? " checked" : ""} onchange="setThanks('${g.id}', this.checked)"> Thanked</label>
+    </div>`).join("") || `<p class="muted small">No guests marked yes yet.</p>`;
+}
+function setThanks(id, v) { const ev = active(); if (ev) { setThanked(ev, id, v); persist(); } }
+function copyThankYou() {
+  const ev = active(); if (!ev) return;
+  const hostField = document.getElementById("invHost");
+  const txt = thankYouText(ev, { host: hostField ? hostField.value.trim() : "" });
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+  alert("Thank-you text copied.");
 }
 function exportGuests() {
   const ev = active(); if (!ev) return;

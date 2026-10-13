@@ -9,7 +9,7 @@ Event planning is death by a thousand details: invitations go out late, the budg
 1. **10 event types** — birthday, wedding, baby shower, graduation, holiday party, dinner party, BBQ, anniversary, housewarming, retirement — each with a purpose-built timeline
 2. **Countdown timelines** — tasks auto-scheduled backwards from your date, with overdue / due-soon / today states and plain-language tips per task
 3. **Budget tracker** — planned vs. spent by category, progress bar, and a one-click auto-split that divides a total budget sensibly; **over-budget category alerts** flag where spending blew past the plan, and a **vendor-vs-budget check** warns when committed vendor spend already exceeds the total budget
-4. **Guest list + RSVPs** — expected headcount math (yes + plus-ones + half of maybes); **search + RSVP-status filters**, a **follow-up nudge** naming everyone still awaiting reply, and **CSV export**
+4. **Guest list + RSVPs** — expected headcount math (yes + plus-ones + half of maybes); **search + RSVP-status filters**, a **follow-up nudge** naming everyone still awaiting reply, and **CSV export**. Per-guest **dietary-needs tracking** with a catering headcount summary; a copy-ready **invitation text** generator (venue, time, RSVP deadline); and an **event wrap-up** (actuals vs budget, thank-you checklist)
 5. **Vendor board** — researching → contacted → booked → paid pipeline with committed spend totals
 6. **Day-of schedule** — build your event-day run-of-show (validated HH:MM times, auto-sorted chronologically)
 7. **Optional AI polish** — paste your own OpenAI API key for rewritten invitation wording (never required)

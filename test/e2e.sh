@@ -116,5 +116,21 @@ flow "day-of schedule validates, sorts, removes" "
   if(s.length!==1||s[0].title!=='Guests arrive') throw new Error('remove failed');
 "
 
+flow "diet -> invite -> wrap-up end to end" "
+  const L=require('./js/logic.js');
+  const ev={name:'Retirement',type:'retirement',date:'2026-11-20',venue:'Hall B',time:'6:00 PM',
+    budget:[{category:'food',planned:800,spent:750}],
+    guests:[{id:'a',name:'Ann',rsvp:'yes',plusOne:false},{id:'b',name:'Bob',rsvp:'yes',plusOne:true}]};
+  L.setGuestDiet(ev.guests,'a','Vegetarian');
+  const s=L.dietSummary(ev.guests);
+  if(s.withNeeds!==1) throw new Error('diet');
+  const inv=L.invitationText(ev,{rsvpDeadline:'2026-11-10'});
+  if(!inv.includes('Hall B')||!inv.includes('RSVP by November 10, 2026')) throw new Error('invite');
+  L.setThanked(ev,'a',true);
+  const w=L.wrapUp(ev);
+  if(w.over) throw new Error('should be under');
+  if(w.thanked!==1||w.needThanks!==1) throw new Error('thanks');
+"
+
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

@@ -290,11 +290,92 @@ function parseGuestsCSV(text) {
   return { guests, skipped };
 }
 
+/* ---------- second sweep: diet, invitations, wrap-up ---------- */
+const DIET_OPTIONS = ["Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Kosher", "Halal", "Nut allergy", "Other"];
+
+function setGuestDiet(guests, id, diet) {
+  const g = (guests || []).find(x => x.id === id);
+  if (!g) return false;
+  if (diet && DIET_OPTIONS.indexOf(diet) === -1) return false;
+  g.diet = diet || "";
+  return true;
+}
+
+/** Catering headcount: dietary needs among yes/maybe guests (+1 counts as 2 when yes). */
+function dietSummary(guests) {
+  const counts = {};
+  let withNeeds = 0, attending = 0;
+  for (const g of guests || []) {
+    if (g.rsvp !== "yes" && g.rsvp !== "maybe") continue;
+    attending++;
+    if (g.diet) {
+      withNeeds++;
+      counts[g.diet] = (counts[g.diet] || 0) + ((g.rsvp === "yes" && g.plusOne) ? 2 : 1);
+    }
+  }
+  return { counts, withNeeds, attending };
+}
+
+function prettyDate(iso) {
+  if (!iso) return "date TBA";
+  const [y, m, d] = iso.split("-").map(Number);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return months[m - 1] + " " + d + ", " + y;
+}
+
+/** Copy-ready invitation text for the active event. */
+function invitationText(ev, opts) {
+  opts = opts || {};
+  const type = (opts.typeLabel || ev.type || "event").replace(/-/g, " ");
+  const when = prettyDate(ev.date) + (ev.time ? " at " + ev.time : "");
+  const where = ev.venue ? " at " + ev.venue : "";
+  const lines = [
+    "You're invited to " + ev.name + "!",
+    "",
+    "A " + type + " on " + when + where + ".",
+    opts.details ? opts.details : null,
+    opts.rsvpDeadline ? "Please RSVP by " + prettyDate(opts.rsvpDeadline) + "." : null,
+    opts.host ? "— " + opts.host : null
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+/** Event wrap-up: actuals vs budget + attendance + thank-you progress. */
+function wrapUp(ev) {
+  const b = budgetTotals(ev.budget || []);
+  const st = rsvpStats(ev.guests || []);
+  const thanked = ev.thanked || {};
+  const attending = (ev.guests || []).filter(g => g.rsvp === "yes");
+  const thankedCount = attending.filter(g => thanked[g.id]).length;
+  return {
+    planned: b.planned, spent: b.spent,
+    over: b.spent > b.planned, overBy: Math.round((b.spent - b.planned) * 100) / 100,
+    attended: attending.length, expected: st.expected,
+    thanked: thankedCount, needThanks: attending.length - thankedCount
+  };
+}
+
+function setThanked(ev, guestId, val) {
+  ev.thanked = ev.thanked || {};
+  if (val) ev.thanked[guestId] = true;
+  else delete ev.thanked[guestId];
+}
+
+function thankYouText(ev, opts) {
+  opts = opts || {};
+  const w = wrapUp(ev);
+  return "Thank you for celebrating " + ev.name + " with us!" +
+    (opts.host ? " — " + opts.host : "") +
+    (w.over ? " (We came in over budget — next time we'll pad the food line.)" : "") +
+    "\nHope you had a wonderful time.";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { parseISO, toISO, todayISO, daysUntil, addDays, buildTimeline,
     nextTask, eventNudge, budgetTotals, rsvpStats, vendorStats, suggestedBudget,
     filterGuests, pendingRSVPs, followUpText, overBudgetCategories, vendorVsBudget,
     guestsToCSV, addScheduleItem, removeScheduleItem, sortSchedule,
     costPerHead, duplicateEvent, rsvpReminderText, parseGuestsCSV, splitCsvLine,
-    normRsvp, normPlusOne };
+    normRsvp, normPlusOne, DIET_OPTIONS, setGuestDiet, dietSummary, invitationText,
+    wrapUp, setThanked, thankYouText, prettyDate };
 }

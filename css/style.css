@@ -222,3 +222,9 @@ label.check input { width: 20px; }
   .brow-label { grid-column: 1 / -1; }
   .form.inline input, .form.inline select, .form.inline button { flex: 1 1 100%; }
 }
+
+/* ---------- second sweep: panels, invite preview ---------- */
+.panel { margin-top: 1.25rem; padding: 1rem 1.1rem; border: 1px solid var(--line, #e2e2e2); background: var(--card, #fff); }
+.panel h3 { margin: 0 0 .7rem; font-size: 1.05rem; }
+.invite-preview { white-space: pre-wrap; font-family: inherit; font-size: .95rem; background: var(--wash, #f7f5f1); border: 1px dashed var(--line, #e2e2e2); padding: .8rem .9rem; margin: .7rem 0 0; }
+select.diet { font-size: .85rem; }

@@ -85,5 +85,43 @@ check "parseGuestsCSV: header, no-header, quotes, normalization" node -e "
   if(!threw) throw new Error('no names should throw');"
 check "event UI wiring: duplicate/import/reminder buttons" bash -c 'grep -q "dupEventBtn" index.html && grep -q "toggleGuestImport" js/app.js && grep -q "copyReminder" js/app.js && grep -q "duplicateActiveEvent" js/app.js'
 
+check "setGuestDiet + dietSummary" node -e "
+  const L=require('./js/logic.js');
+  const g=[{id:'a',name:'A',rsvp:'yes',plusOne:true},{id:'b',name:'B',rsvp:'maybe'},{id:'c',name:'C',rsvp:'no'}];
+  if(!L.setGuestDiet(g,'a','Vegan')) throw new Error('set a');
+  if(!L.setGuestDiet(g,'b','Gluten-free')) throw new Error('set b');
+  if(L.setGuestDiet(g,'zzz','Vegan')) throw new Error('bogus id accepted');
+  if(L.setGuestDiet(g,'a','Pizza')) throw new Error('bad diet accepted');
+  const s=L.dietSummary(g);
+  if(s.counts['Vegan']!==2) throw new Error('plusOne counts 2: '+JSON.stringify(s.counts));
+  if(s.counts['Gluten-free']!==1) throw new Error('gf: '+JSON.stringify(s.counts));
+  if(s.attending!==2) throw new Error('attending: '+s.attending);"
+
+check "invitationText" node -e "
+  const L=require('./js/logic.js');
+  const ev={name:'Maya 30th',type:'birthday',date:'2026-12-05',venue:'The Barn',time:'7:00 PM'};
+  const t=L.invitationText(ev,{rsvpDeadline:'2026-11-28',host:'Alex',details:'Cocktail attire.'});
+  if(!t.includes('Maya 30th')) throw new Error('name');
+  if(!t.includes('December 5, 2026')) throw new Error('date: '+t);
+  if(!t.includes('The Barn')||!t.includes('7:00 PM')) throw new Error('venue/time');
+  if(!t.includes('RSVP by November 28, 2026')) throw new Error('deadline');
+  if(!t.includes('Alex')) throw new Error('host');
+  const bare=L.invitationText({name:'X',type:'bbq',date:null});
+  if(!bare.includes('date TBA')) throw new Error('tba: '+bare);"
+
+check "wrapUp + thanked + thankYouText" node -e "
+  const L=require('./js/logic.js');
+  const ev={name:'Party',budget:[{category:'food',planned:1000,spent:1200}],guests:[{id:'a',name:'A',rsvp:'yes'},{id:'b',name:'B',rsvp:'yes'},{id:'c',name:'C',rsvp:'no'}],thanked:{}};
+  let w=L.wrapUp(ev);
+  if(!w.over||w.overBy!==200) throw new Error('over: '+JSON.stringify(w));
+  if(w.attended!==2||w.thanked!==0||w.needThanks!==2) throw new Error('thanks: '+JSON.stringify(w));
+  L.setThanked(ev,'a',true);
+  w=L.wrapUp(ev);
+  if(w.thanked!==1||w.needThanks!==1) throw new Error('after: '+JSON.stringify(w));
+  const t=L.thankYouText(ev,{host:'Alex'});
+  if(!t.includes('Party')||!t.includes('Alex')) throw new Error('thanks text: '+t);"
+
+check "second-sweep UI wired" bash -c 'grep -q "setDiet" js/app.js && grep -q "dietSummary" js/app.js && grep -q "invVenue" js/app.js && grep -q "copyInvite" js/app.js && grep -q "renderWrapUp" js/app.js && grep -q "thankList" js/app.js'
+
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))
