@@ -370,6 +370,32 @@ function thankYouText(ev, opts) {
     "\nHope you had a wonderful time.";
 }
 
+/** One-glance party briefing for the active event: countdown, headcount,
+    budget, next task, vendor status. Pure — everything it needs comes in. */
+function eventBrief(ev, fromISO, bank) {
+  const e = ev || {};
+  const tl = buildTimeline(e.type, e.date, e.done || [], fromISO, bank || { EVENT_TYPES: {} });
+  const rsvp = rsvpStats(e.guests);
+  const bud = budgetTotals(e.budget || []);
+  const ven = vendorStats(e.vendors);
+  const next = nextTask(tl);
+  const totalBudget = bud.planned;
+  return {
+    name: e.name || "Untitled event",
+    type: e.type || "",
+    date: e.date || "",
+    time: e.time || "",
+    venue: e.venue || "",
+    daysOut: e.date ? daysUntil(e.date, fromISO) : null,
+    nudge: e.date ? eventNudge(daysUntil(e.date, fromISO)) : "",
+    rsvp, budget: bud, vendors: ven, nextTask: next,
+    totalBudget,
+    budgetPct: totalBudget > 0 ? Math.min(100, Math.round(bud.spent / totalBudget * 100)) : 0,
+    timelineDone: tl.filter(t => (e.done || []).includes(t.idx)).length,
+    timelineTotal: tl.length
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { parseISO, toISO, todayISO, daysUntil, addDays, buildTimeline,
     nextTask, eventNudge, budgetTotals, rsvpStats, vendorStats, suggestedBudget,
@@ -377,5 +403,5 @@ if (typeof module !== "undefined" && module.exports) {
     guestsToCSV, addScheduleItem, removeScheduleItem, sortSchedule,
     costPerHead, duplicateEvent, rsvpReminderText, parseGuestsCSV, splitCsvLine,
     normRsvp, normPlusOne, DIET_OPTIONS, setGuestDiet, dietSummary, invitationText,
-    wrapUp, setThanked, thankYouText, prettyDate };
+    wrapUp, setThanked, thankYouText, prettyDate, eventBrief };
 }

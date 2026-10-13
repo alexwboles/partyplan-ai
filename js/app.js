@@ -50,7 +50,10 @@ function addEvent(e) {
   const type = document.getElementById("evType").value;
   const date = document.getElementById("evDate").value;
   if (!name || !date) return;
-  const ev = { id: uid(), name, type, date, budget: [], guests: [], vendors: [], done: [], schedule: [] };
+  const ev = { id: uid(), name, type, date,
+    time: document.getElementById("evTime").value || "",
+    venue: document.getElementById("evVenue").value.trim() || "",
+    budget: [], guests: [], vendors: [], done: [], schedule: [] };
   S.events.push(ev); S.activeId = ev.id;
   document.getElementById("evName").value = "";
   persist();
@@ -430,8 +433,42 @@ function delScheduleItem(id) {
   persist();
 }
 
+/* ---------- party page: the one-glance briefing ---------- */
+function renderBrief() {
+  const ev = active();
+  const box = document.getElementById("briefBox");
+  if (!ev) { box.innerHTML = `<p class="muted">Create your first event above — the party page will appear here.</p>`; return; }
+  const b = eventBrief(ev, todayISO(), { EVENT_TYPES });
+  const typeLabel = ((EVENT_TYPES[ev.type] || {}).label || ev.type || "").replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, "").trim();
+  const r = b.rsvp.counts;
+  const rsvpBars = [["yes", r.yes, "var(--good)"], ["maybe", r.maybe, "var(--gold)"], ["no", r.no, "var(--bad)"], ["invited", r.invited, "var(--ink-soft)"]]
+    .filter(x => x[1] > 0)
+    .map(x => `<div class="rsvp-bar"><span>${x[0]} · ${x[1]}</span><i style="width:${Math.round(x[1] / Math.max(1, b.rsvp.total) * 100)}%;background:${x[2]}"></i></div>`).join("");
+  box.innerHTML =
+    `<div class="brief-hero">
+       <div class="brief-count"><span class="num">${b.daysOut < 0 ? -b.daysOut : b.daysOut}</span><span class="lbl">${b.daysOut < 0 ? "days ago" : b.daysOut === 0 ? "today — showtime" : "days to go"}</span></div>
+       <div><div class="ev-type">${esc(typeLabel)}</div>
+       <h2 class="brief-name">${esc(b.name)}</h2>
+       <div class="brief-meta">${esc(b.date)}${b.time ? " · " + esc(b.time) : ""}${b.venue ? " · " + esc(b.venue) : ""}</div></div>
+     </div>` +
+    (b.nudge ? `<div class="nudge">${esc(b.nudge)}</div>` : "") +
+    `<div class="brief-grid">
+       <div class="card"><h3>Headcount</h3><div class="big-num">${b.rsvp.expected}</div><p class="muted small">expected · ${r.yes} yes${b.rsvp.plusOnes ? " (+" + b.rsvp.plusOnes + " plus-ones)" : ""}</p>${rsvpBars}</div>
+       <div class="card"><h3>Budget</h3><div class="big-num">$${b.budget.spent.toLocaleString()}</div><p class="muted small">of $${b.totalBudget.toLocaleString()} planned</p><div class="bar"><div class="bar-fill" style="width:${b.budgetPct}%"></div></div></div>
+       <div class="card"><h3>Vendors</h3><div class="big-num">${b.vendors.booked}/${b.vendors.total}</div><p class="muted small">booked</p></div>
+       <div class="card"><h3>Planning</h3><div class="big-num">${b.timelineDone}/${b.timelineTotal}</div><p class="muted small">tasks done</p>${b.nextTask ? `<p class="small"><strong>Next:</strong> ${esc(b.nextTask.title)}</p>` : `<p class="small">All tasks done — enjoy!</p>`}</div>
+     </div>
+     <div class="row" style="margin-top:1rem"><button class="btn small" id="briefPrint">Print party brief</button></div>`;
+  document.getElementById("briefPrint").addEventListener("click", () => {
+    document.body.classList.add("printing-brief");
+    window.print();
+    setTimeout(() => document.body.classList.remove("printing-brief"), 500);
+  });
+}
+
 function render() {
   renderEventPicker();
+  renderBrief();
   renderTimeline();
   renderBudget();
   renderGuests();

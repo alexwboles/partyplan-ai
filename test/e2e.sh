@@ -132,5 +132,18 @@ flow "diet -> invite -> wrap-up end to end" "
   if(w.thanked!==1||w.needThanks!==1) throw new Error('thanks');
 "
 
+flow "party brief composes every tab into one glance" "
+  const L = require('./js/logic.js'); const B = require('./js/planbank.js');
+  const ev = { name: 'Maya 30th', type: 'birthday', date: '2026-11-14',
+    guests: [ { name: 'A', rsvp: 'yes', plusOne: false } ],
+    budget: [ { category: 'Food', planned: 600, spent: 600 } ],
+    vendors: [], done: [] };
+  const b = L.eventBrief(ev, '2026-10-13', B);
+  if (b.timelineTotal <= 0) throw new Error('no timeline tasks');
+  if (!b.nextTask) throw new Error('expected a next task');
+  if (b.budgetPct !== 100) throw new Error('budgetPct=' + b.budgetPct);
+  if (b.rsvp.expected !== 1) throw new Error('expected headcount');
+"
+
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

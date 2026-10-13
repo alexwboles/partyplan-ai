@@ -228,3 +228,28 @@ label.check input { width: 20px; }
 .panel h3 { margin: 0 0 .7rem; font-size: 1.05rem; }
 .invite-preview { white-space: pre-wrap; font-family: inherit; font-size: .95rem; background: var(--wash, #f7f5f1); border: 1px dashed var(--line, #e2e2e2); padding: .8rem .9rem; margin: .7rem 0 0; }
 select.diet { font-size: .85rem; }
+
+/* ---------- party page briefing ---------- */
+.brief-hero{display:flex;gap:1.4rem;align-items:center;background:var(--ink);color:#f7f1e6;padding:1.6rem 1.8rem;margin-bottom:1.1rem}
+.brief-count{text-align:center;flex:0 0 auto}
+.brief-count .num{display:block;font-family:var(--serif);font-size:3.2rem;font-weight:700;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums}
+.brief-count .lbl{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.16em;color:#cbbfae;margin-top:.3rem}
+.brief-name{font-family:var(--serif);font-size:2rem;margin:.1rem 0 .3rem;color:#fff}
+.brief-meta{color:#cbbfae;font-size:.95rem}
+.brief-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.9rem}
+@media(max-width:900px){.brief-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.brief-grid{grid-template-columns:1fr}}
+.brief-grid .card h3{margin:0 0 .3rem;font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-soft)}
+.big-num{font-size:2.2rem;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.brief-grid .bar{height:8px;background:#eee4d2;margin-top:.6rem}
+.brief-grid .bar-fill{height:100%;background:var(--gold)}
+.rsvp-bar{display:flex;align-items:center;gap:.6rem;font-size:.8rem;margin-top:.35rem}
+.rsvp-bar span{flex:0 0 76px;text-transform:capitalize}
+.rsvp-bar i{display:block;height:8px}
+@media print{
+  body.printing-brief .event-card,body.printing-brief .tabs,body.printing-brief footer,
+  body.printing-brief .row,body.printing-brief button{display:none!important}
+  body.printing-brief .brief-hero{background:#fff!important;color:#000;border:2px solid #000}
+  body.printing-brief .brief-name{color:#000}
+  body.printing-brief .brief-meta,body.printing-brief .brief-count .lbl{color:#333}
+}

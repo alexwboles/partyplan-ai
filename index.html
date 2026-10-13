@@ -32,19 +32,26 @@
       <input id="evName" placeholder="Event name (e.g. Maya's 30th)" required>
       <select id="evType"></select>
       <input id="evDate" type="date" required>
+      <input id="evTime" type="time" aria-label="Start time">
+      <input id="evVenue" placeholder="Venue (optional)" maxlength="80">
       <button class="btn" type="submit">Create event</button>
     </form>
   </section>
 
   <nav class="tabs" aria-label="Planning sections">
-    <button class="tab active" data-tab="timeline">Timeline</button>
+    <button class="tab active" data-tab="party">Party page</button>
+    <button class="tab" data-tab="timeline">Timeline</button>
     <button class="tab" data-tab="budget">Budget</button>
     <button class="tab" data-tab="guests">Guests</button>
     <button class="tab" data-tab="vendors">Vendors</button>
     <button class="tab" data-tab="dayof">Day-of</button>
   </nav>
 
-  <section class="panel active" id="panel-timeline">
+  <section class="panel active" id="panel-party">
+      <div id="briefBox"></div>
+    </section>
+
+    <section class="panel" id="panel-timeline">
     <h2>Planning timeline</h2>
     <p class="muted">Tasks are auto-scheduled backwards from your event date. Check them off as you go.</p>
     <div id="timelineList"></div>

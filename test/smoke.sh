@@ -123,5 +123,26 @@ check "wrapUp + thanked + thankYouText" node -e "
 
 check "second-sweep UI wired" bash -c 'grep -q "setDiet" js/app.js && grep -q "dietSummary" js/app.js && grep -q "invVenue" js/app.js && grep -q "copyInvite" js/app.js && grep -q "renderWrapUp" js/app.js && grep -q "thankList" js/app.js'
 
+check "party page tab in index.html" grep -q 'data-tab="party"' index.html
+check "briefBox panel in index.html" grep -q 'id="briefBox"' index.html
+check "time+venue fields in event form" grep -q 'id="evTime"' index.html
+check "renderBrief in app.js" grep -q 'function renderBrief' js/app.js
+check "brief CSS present" grep -q 'brief-grid' css/style.css
+check "eventBrief in logic.js" grep -q 'function eventBrief' js/logic.js
+check "eventBrief logic" node -e "
+  const L = require('./js/logic.js');
+  const ev = { name: 'T', type: 'birthday', date: '2026-11-14', time: '19:00', venue: 'Barn',
+    guests: [ { name: 'A', rsvp: 'yes', plusOne: true }, { name: 'B', rsvp: 'maybe' } ],
+    budget: [ { category: 'Food', planned: 500, spent: 200 } ],
+    vendors: [ { name: 'DJ', status: 'booked', cost: 400 }, { name: 'Cake', status: 'contacted' } ],
+    done: [] };
+  const b = L.eventBrief(ev, '2026-10-13', { EVENT_TYPES: {} });
+  if (b.daysOut !== 32) throw new Error('daysOut=' + b.daysOut);
+  if (b.rsvp.expected !== 3) throw new Error('expected=' + b.rsvp.expected);
+  if (b.totalBudget !== 500 || b.budgetPct !== 40) throw new Error('budget');
+  if (b.vendors.booked !== 1 || b.vendors.total !== 2) throw new Error('vendors');
+  if (b.time !== '19:00' || b.venue !== 'Barn') throw new Error('time/venue');
+"
+
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))
